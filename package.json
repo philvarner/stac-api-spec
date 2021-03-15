@@ -1,18 +1,33 @@
 {
   "name": "api-spec",
-  "version": "0.9.0",
-  "description": "Generate STAC openapi defintions from fragments.",
-  "repository": "https://github.com/radiantearth/stac-spec",
+  "version": "1.0.0-beta.1",
+  "description": "STAC API helpers to generate, serve and check the API spec.",
+  "repository": "https://github.com/radiantearth/stac-api-spec",
   "license": "Apache-2.0",
   "scripts": {
-    "generate-ext": "yaml-files extensions/STAC-extensions.merge.yaml STAC-extensions.yaml",
-    "generate-core": "yaml-files openapi/STAC.merge.yaml STAC.yaml",
-    "generate-all": "npm run generate-core && npm run generate-ext",
-    "serve-ext": "npm run generate-all && redoc-cli serve STAC-extensions.yaml --watch --options.expandResponses \"200,201,202,203,204\" --options.pathInMiddlePanel true",
-    "serve": "npm run generate-all && redoc-cli serve STAC.yaml --watch --options.expandResponses \"200,201,202,203,204\" --options.pathInMiddlePanel true"
+    "serve": "redoc-cli serve core/openapi.yaml --watch --options.expandResponses \"200,201,202,203,204\" --options.pathInMiddlePanel true",
+    "check": "npm run check-markdown && npm run check-openapi",
+    "check-markdown": "remark . -f -r .circleci/rc.yaml --no-ignore --ignore-pattern stac-spec/",
+    "check-openapi": "npm run check-openapi-core && npm run check-openapi-commons && npm run check-openapi-ogcapi-features && npm run check-openapi-item-search && npm run check-openapi-fragments",
+    "check-openapi-core": "spectral lint core/openapi.yaml --ruleset .circleci/.spectral.yml",
+    "check-openapi-commons": "spectral lint core/commons.yaml --ruleset .circleci/.spectral-fragments.yml",
+    "check-openapi-ogcapi-features": "spectral lint ogcapi-features/openapi.yaml ogcapi-features/extensions/*/openapi.yaml --ruleset .circleci/.spectral.yml",
+    "check-openapi-item-search": "spectral lint item-search/openapi.yaml --ruleset .circleci/.spectral.yml",
+    "check-openapi-fragments": "spectral lint fragments/*/openapi.yaml --ruleset .circleci/.spectral-fragments.yml",
+    "build-openapi": ".circleci/build-openapi.sh",
+    "publish-openapi": "node .circleci/publish.js"
   },
   "dependencies": {
-    "redoc-cli": "^0.10.2",
-    "yaml-files": "^1.1.0"
+    "@stoplight/spectral": "^5.7.1",
+    "gh-pages": "^3.1.0",
+    "remark-cli": "^8.0.1",
+    "remark-lint": "^7.0.1",
+    "remark-lint-no-html": "^2.0.1",
+    "remark-preset-lint-consistent": "^3.0.1",
+    "remark-preset-lint-markdown-style-guide": "^3.0.1",
+    "remark-preset-lint-recommended": "^4.0.1",
+    "remark-validate-links": "^10.0.2",
+    "swagger-cli": "^4.0.4",
+    "swagger-combine": "^1.3.0"
   }
 }

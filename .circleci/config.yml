@@ -1,33 +1,98 @@
-version: 2
+version: 2.1
+
+references:
+  restore_repo: &restore_repo
+    restore_cache:
+      keys:
+        - v0-repo-{{ .Branch }}-{{ .Revision }}
+        - v0-repo-{{ .Branch }}
+        - v0-repo
+
+  restore_dependencies: &restore_dependencies
+    restore_cache:
+      keys: 
+        - v0-dependencies-{{ checksum "package.json"}}
+        - v0-dependencies
+
+  restore_build: &restore_build
+    restore_cache:
+      keys: 
+        - v0-build-{{ .Branch }}-{{ .Revision }}
+
+
 jobs:
+  validate:
+    working_directory: ~/stac
+    docker:
+      - image: circleci/node:12
+    steps:
+      - checkout
+      - run:
+          name: init_submodules
+          command: git submodule update --init --recursive
+      - save_cache:
+          key: v0-repo-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - ~/stac
+      - run:
+          name: install
+          command: npm install
+      - save_cache:
+          key: v0-dependencies-{{ checksum "package.json"}}
+          paths:
+            - ~/stac/node_modules
+      - run:
+          name: validate
+          command: npm run check
   build:
     working_directory: ~/stac
     docker:
-      - image: circleci/python:3.7
-
+      - image: circleci/node:12
     steps:
-      - checkout
-      - run: sudo chown -R circleci:circleci /usr/local/bin
-      - run: sudo chown -R circleci:circleci /usr/local/lib/python3.7/site-packages
+      - *restore_repo
+      - *restore_dependencies
       - run:
-          name: install
-          command: |
-            pip install stac-validator
-            sudo apt-get update
-            sudo apt-get install curl -y software-properties-common
-            curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-            sudo npm install -g remark-cli remark-validate-links
+          name: build openapi
+          command: npm run build-openapi
+      - save_cache:
+          key: v0-build-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - ~/stac/build
+  publish:
+    working_directory: ~/stac
+    docker:
+      - image: circleci/node:12
+    steps:
+      - *restore_repo
+      - *restore_dependencies
+      - *restore_build
+      - add_ssh_keys
       - run:
-          name: validate
+          name: publish
           command: |
-            stac_validator catalog-spec/examples/catalog.json
-            stac_validator collection-spec/examples/sentinel2.json
-            stac_validator item-spec/examples/sample.json
-            stac_validator item-spec/examples/sample-full.json
-            stac_validator item-spec/examples/sentinel2-sample.json
-            stac_validator item-spec/examples/planet-sample.json
-            stac_validator item-spec/examples/landsat8-sample.json
-            stac_validator item-spec/examples/digitalglobe-sample.json
-            stac_validator item-spec/examples/CBERS_4_MUX_20181029_177_106_L4.json
-            remark -f -u validate-links .
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
+            npm run publish-openapi -- $CIRCLE_TAG
+
+workflows:
+  version: 2
+  ci:
+    jobs:
+      - validate:
+          filters:
+            tags:
+              only: /^v.*/
+      - build:
+          requires:
+            - validate
+          filters:
+            tags:
+              only: /^v.*/
+      - publish:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              # Only dev branch, not PRs
+              only: dev
