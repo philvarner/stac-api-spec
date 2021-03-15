@@ -12,7 +12,7 @@
     "serve": "npm run generate-all && redoc-cli serve STAC.yaml --watch --options.expandResponses \"200,201,202,203,204\" --options.pathInMiddlePanel true"
   },
   "dependencies": {
-    "redoc-cli": "^0.9.4",
+    "redoc-cli": "^0.10.2",
     "yaml-files": "^1.1.0"
   }
 }
